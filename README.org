@@ -1,0 +1,14 @@
+This is very much a work in progress.
+
+Gratrain is a simple graph generator.
+
+Generation follows a pipeline
+
+1) Graph data may be authored in Jsonnet
+2) Compiled to JSON
+3) Loaded by Python into Networkx objects
+4) Saved into final form (ie, GraphViz dot)
+
+The name is a play on "Jsonnet", "graph" and "train" (pipeline).
+
+ 
