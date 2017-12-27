@@ -53,7 +53,7 @@ def write(g, filename=None):
     
 
 if __name__ == '__main__':
-
-    jdat = loadf("graph.json")
+    import sys
+    jdat = loadf(sys.argv[1])
     g = jdat2nx(jdat)
     write(g)
