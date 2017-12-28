@@ -1,14 +1,90 @@
-This is very much a work in progress.
+#+title: Gravio
 
-Gratrain is a simple graph generator.
+Gravio is graph generation and visualization with an object oriented data structure.
 
-Generation follows a pipeline
+* Overview
 
-1) Graph data may be authored in Jsonnet
-2) Compiled to JSON
-3) Loaded by Python into Networkx objects
-4) Saved into final form (ie, GraphViz dot)
+Gravio helps you write Python code which construct graphs.  It does this by providing a command-oriented interface to add nodes, edges and subgraphs.  As a graph is developed its intermediate state be queried which helps to factor construction code into functional parts which can build on prior results.
 
-The name is a play on "Jsonnet", "graph" and "train" (pipeline).
+Construction commands are queued so that they may be replayed in order.  This allows commands to mutate shared state which reduces the need to exhaustively specify attributes.
 
- 
+Gravio command interface is very closely aligned with the GraphViz Dot language and indeed the primary goal of Gravio is that its command queue is interpreted into Dot text.  
+
+* Installation
+
+Install it like any Python package.
+
+* Getting started
+
+** Simple Construction
+
+The =gravio.gen.Graph= class is the main entry point to constructing graphs.  It provides methods =.node()=, =.edge()= and =.subgraph()= (in the GraphViz "cluster" sense) to new objects to itself in order of their calling.  Positional arguments are node or subgraph names.  Arbitrary keyword arguments may be applied.  If positional arguments are omitted the call is equivalent to using a typename.  For example =g.node(color='red')= is equivalent to creating a node named =node= with the =color= attribute set to =red=.  Some =Graph= consumers may interpret this as setting a default value for any subsequent =node=.  Indeed the example =Graph= below is consumed by =dotify.Dotify= which when evaluated as a string will produce Dot text.
+
+#+NAME: make-simple
+#+BEGIN_SRC python :results output :exports none
+  from gravio import gen, dotify
+  g = gen.Graph("simple", "digraph", style='filled', rankdir='LR')
+  g.node('a', color='red')
+  g.edge('a','b',style='dashed')
+  sg = g.subgraph('cluster_sg', style='solid')
+  sg.node(color='blue')
+  sg.edge('b','c')
+  
+  d = dotify.Dotify(g, indent='  ')
+  print (str(d))
+#+END_SRC
+
+#+RESULTS: make-simple
+#+begin_example
+digraph simple {
+  graph[rankdir="LR",style="filled"];
+  a[color="red"];
+  "a" -> "b"[style="dashed"];
+  subgraph cluster_sg {
+    graph[style="solid"];
+    node[color="blue"];
+    "b" -> "c"[];
+  }
+}
+#+end_example
+
+#+BEGIN_SRC dot :file images/simple.png :var simple=make-simple :exports results
+$simple
+#+END_SRC
+
+#+RESULTS:
+[[file:images/simple.png]]
+
+** Interrogating the Graph 
+
+The =gravio.gen.Graph= is actually a list of other =gravio.gen= objects.  It's order reflects the order in which the objects were created.  Note that naming a node only in the creation of an edge does not explicitly add a =gravio.gen.Node= object to the =Graph= list.
+
+The =Graph= object also provides some convenience methods to query its list.
+
+#+BEGIN_SRC python :results output 
+    from gravio import gen, dotify
+    g = gen.Graph("simple", "digraph", style='filled', rankdir='LR')
+    sg = g.subgraph("sg", category='cats')
+    g.node('a',color='red')
+    g.node('b',color='blue')
+    sg.node('c',color='red', special=True)
+    sg.node('d',color='red')
+    g.edge('a','b')
+    g.edge('a','c')
+
+    rednodes = g.nodes(color='red')
+    print ('\n'.join([n.name for n in rednodes]))
+    print (sg.nodes(special=True))
+    print (len(g.subgraphs))
+    print (len(g.graphs(category='cats')))
+#+END_SRC
+
+#+RESULTS:
+: a
+: [<node c>]
+: 1
+: 1
+
+The =Graph.nodes()= returns all nodes directly in Graph (the search does not descend into subgraphs) with matching attributes.  Likewise =Graph.graphs()= will search for any direct subgraphs of the given =Graph= object.  A list of all subgraphs in order of their addition are available as =Graph.subgraphs=.  
+
+Graph construction code may use these mechanisms to separate subgraph creation from code which connects nodes between subgraphs based on some assumption about the structure if not the exact content of the subgraphs.  For example, the user may give individual nodes or subgraphs attributes that make up some addressing scheme.  The user may then write code which looks for these addresses in order to form new edges.  This code may then need not be dependent on details of the structure and exact content of the graph (eg, it may be independent of the exact names and connectivity).  The user is limited only by their imagination.

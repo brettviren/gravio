@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
-setup(name = 'gratrain',
+setup(name = 'gravio',
       version = '0.0',
-      description = 'Graph Train',
+      description = 'Gravio is graph generation and visualization with an object oriented data structure',
       author = 'Brett Viren',
       author_email = 'brett.viren@gmail.com',
       license = 'GPLv2',
