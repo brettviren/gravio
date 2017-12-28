@@ -21,7 +21,7 @@ Install it like any Python package.
 The =gravio.gen.Graph= class is the main entry point to constructing graphs.  It provides methods =.node()=, =.edge()= and =.subgraph()= (in the GraphViz "cluster" sense) to new objects to itself in order of their calling.  Positional arguments are node or subgraph names.  Arbitrary keyword arguments may be applied.  If positional arguments are omitted the call is equivalent to using a typename.  For example =g.node(color='red')= is equivalent to creating a node named =node= with the =color= attribute set to =red=.  Some =Graph= consumers may interpret this as setting a default value for any subsequent =node=.  Indeed the example =Graph= below is consumed by =dotify.Dotify= which when evaluated as a string will produce Dot text.
 
 #+NAME: make-simple
-#+BEGIN_SRC python :results output
+#+BEGIN_SRC python :results output :exports both
   from gravio import gen, dotify
   g = gen.Graph("simple", "digraph", style='filled', rankdir='LR')
   g.node('a', color='red')
