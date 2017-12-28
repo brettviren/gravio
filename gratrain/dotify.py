@@ -1,5 +1,11 @@
 import functools
 
+def node_in_edge(nstr):
+    parsed = tuple(nstr.split(':',1))
+    if len(parsed) == 1:
+        return '"%s"'%parsed[0]
+    return '"%s":%s'%parsed
+
 class Dotify(object):
 
     def __init__(self, cmdlist, indent = '\t'):
@@ -25,7 +31,7 @@ class Dotify(object):
 
     def edge(self, depth, typename, args, kwds):
         if args:
-            what = '"%s" %s "%s"' % (args[0], self.arrow, args[1])
+            what = '%s %s %s' % (node_in_edge(args[0]), self.arrow, node_in_edge(args[1]))
         else:
             what = "edge"
         return self.attrs(depth, what, (), kwds)
@@ -34,7 +40,7 @@ class Dotify(object):
         if args:
             what = '"%s"' % (args[0],)
         else:
-            s += "node"
+            what = "node"
         return self.attrs(depth, what, (), kwds)
 
     def graph(self, depth, typename, args, kwds):
