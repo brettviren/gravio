@@ -3,3 +3,5 @@
 *.pdf
 *.egg-info
 venv*
+*.gv
+*.dot

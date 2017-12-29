@@ -16,15 +16,17 @@ class Node(object):
         return 'node'
 
     def __repr__(self):
-        return '<node %s>'%self.name
+        a = ','.join(['%s:%s'%kv for kv in self.attr.items()])
+        return '<node %s [%s]>'%(self.name, a)
+    __str__ = __repr__
 
 class Edge(object):
 
     def __init__(self, tail=None, head=None, **attr):
         if isinstance(tail, Node):
-            tail = tail.head
+            tail = tail.name
         if isinstance(head, Node):
-            head = head.head
+            head = head.name
         self.tail = tail
         self.head = head
         self.attr = attr
@@ -34,7 +36,9 @@ class Edge(object):
         return 'edge'
 
     def __repr__(self):
-        return '<edge (%s,%s))>'%(self.tail, self.head)
+        a = ','.join(['%s:%s'%kv for kv in self.attr.items()])
+        return '<edge (%s,%s) [%s]>'%(self.tail, self.head, a)
+    __str__ = __repr__
 
 class Graph(list):
 
@@ -46,6 +50,7 @@ class Graph(list):
 
     def __repr__(self):
         return '<%s %s>'%(self.typename, self.name)
+    __str__ = __repr__
         
     def __call__(self, typename, *args, **attr):
         if typename in ['subgraph','graph']:
@@ -96,8 +101,6 @@ class Graph(list):
             ret.append(one)
         return ret
 
-
-
     def nodes(self, **kwds):
         '''
         Return nodes with kwds matching kwds
@@ -130,6 +133,16 @@ class Graph(list):
                 ret.append(one)
         return ret
 
+def visit(g, visitor):
+    '''
+    Call visitor on every node
+    '''
+    visitor(g)
+    for one in g:
+        if one.typename == 'subgraph':
+            visit(one, visitor)
+            continue
+        visitor(one)
 
 def test():
     g = Graph("foo","digraph" )
