@@ -88,3 +88,12 @@ The =Graph= object also provides some convenience methods to query its list.
 The =Graph.nodes()= returns all nodes directly in Graph (the search does not descend into subgraphs) with matching attributes.  Likewise =Graph.graphs()= will search for any direct subgraphs of the given =Graph= object.  A list of all subgraphs in order of their addition are available as =Graph.subgraphs=.  
 
 Graph construction code may use these mechanisms to separate subgraph creation from code which connects nodes between subgraphs based on some assumption about the structure if not the exact content of the subgraphs.  For example, the user may give individual nodes or subgraphs attributes that make up some addressing scheme.  The user may then write code which looks for these addresses in order to form new edges.  This code may then need not be dependent on details of the structure and exact content of the graph (eg, it may be independent of the exact names and connectivity).  The user is limited only by their imagination.
+
+* Going further
+
+See the modules under =gravio.test= and =gravio.examples=.
+
+#+BEGIN_EXAMPLE
+$ python gravio/test/test_examples_dune.py 
+#+END_EXAMPLE
+[[file:images/test_examples_dune.svg]]
