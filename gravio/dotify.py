@@ -39,7 +39,11 @@ class Dotify(object):
         return self.sattr(depth, what, obj.attr)
 
     def subgraph(self, depth, obj):
-        lines = ["%s%s %s {" % (self.tab(depth), obj.typename, obj.name)]
+        name = obj.name
+        # don't require user to care about this wonky dot convention
+        if name and not name.startswith('cluster_'):
+            name = 'cluster_' + name
+        lines = ["%s%s %s {" % (self.tab(depth), obj.typename, name)]
         if obj.attr:
             lines += self.sattr(depth+1, 'graph', obj.attr)
         lines += self.next_lines(depth+1, obj)

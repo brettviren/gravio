@@ -148,7 +148,7 @@ def test():
     g = Graph("foo","digraph" )
     g('node','n1',color='red')
     g('edge','n1','n2', color='blue')
-    s = g('subgraph','cluster_1',color='green')
+    s = g('subgraph','1',color='green')
     s('edge','a','b',color='purple')
     g('node','n3',color='gray')
     g('edge','a','n3',style='dotted')

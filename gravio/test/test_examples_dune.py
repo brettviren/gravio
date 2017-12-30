@@ -3,13 +3,15 @@ import gravio.gen
 import gravio.dotify
 
 def main():
-    g = gravio.examples.dune.main()
 
-    #gravio.gen.visit(g, print)
+    for which in ["felix", "rce_felix"]:
+        g = gravio.examples.dune.main(which)
+        d = gravio.dotify.Dotify(g)
+        filename = "test_examples_dune_%s.dot"%which
+        open(filename,"w").write(str(d))
+        print ("wrote:",filename)
 
-    d = gravio.dotify.Dotify(g)
-    open("test_examples_dune.dot","w").write(str(d))
-    return g
+
     #gv = gravio.graphvizio.dump(g)
     #gv.view()
     #return gv
