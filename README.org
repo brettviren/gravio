@@ -91,9 +91,19 @@ Graph construction code may use these mechanisms to separate subgraph creation f
 
 * Going further
 
-See the modules under =gravio.test= and =gravio.examples=.
+See the modules under =gravio.test= and =gravio.examples=.  This example produces two large graphs each with a variant in terms of the connections among parts near the center.  
 
 #+BEGIN_EXAMPLE
 $ python gravio/test/test_examples_dune.py 
+$ dot -Tsvg -o images/example-dune-felix.svg test_examples_dune_felix.dot
+$ dot -Tsvg -o images/example-dune-rce-felix.svg test_examples_dune_rce_felix.dot
 #+END_EXAMPLE
-[[file:images/test_examples_dune.svg]]
+
+#+attr_html: :width 100%
+[[file:images/example-dune-felix.svg]]
+#+attr_html: :width 100%
+[[file:images/example-dune-rce-felix.svg]]
+
+
+
+

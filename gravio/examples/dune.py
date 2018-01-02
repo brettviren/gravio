@@ -1,75 +1,94 @@
 #!/usr/bin/env python
 
-def subgraph_color(what):
+# throughput of one ASIC in Gbps
+asictp = 16* 2e6 * 12 / 1e9
+# throughput of one FEMB
+fembtp = 8 * asictp
+# throughput of one entire APA face
+facetp = 10 * fembtp
+
+def subgraph_color(part):
     '''
     This function encapsulates my inability to pick nice colors.
 
     https://graphviz.gitlab.io/_pages/doc/info/colors.html
     '''
     scheme = '/bupu6/'
-    if what.startswith("wib"):
-        what = "wib"
+    if part.startswith("wib"):
+        part = "wib"
+    if part.startswith("rce"):
+        part = "rce"
     ranks = dict(apa=1, face=2, femb=3, wib=4, rce=5, felix=6)
-    num = ranks.get(what, 1)
+    num = ranks.get(part, 1)
     return scheme + str(num)
 
-def edge_style(what):
-    widths = dict(asic=1, asictx=2, asiclink=4)
-    d = dict(color='black', style='solid',
-             penwidth=widths.get(what, 1))
-    return d
+def edge_style(part='', **kwds):
+    '''
+    Return a new dictionary which adds style attributes
+    '''
+    linktp = kwds.get('linktp', 0.0)
+    penwidth = int(linktp/asictp)
+    #penwidth = min(penwidth, 40)
 
 
-def node_shape(what):
+    d = dict(color='black', style='solid', penwidth=penwidth)
+
+    for k,v in d.items():
+        kwds.setdefault(k,v)
+
+    return kwds
+
+
+def node_shape(part):
     special = dict(tx='hexagon', mx='hexagon', rx='hexagon',
                    fpga='octagon',
                    conn='circle', uplink='circle', bundle='circle',
                    cable='circle', fiber='circle', link='circle')
-    return special.get(what, 'box')
+    return special.get(part, 'box')
 
-def subctx(ctx, what, ident=''):
-    return "%s_%s%s" % (ctx, what, ident)
+def subctx(ctx, part, ident=''):
+    return "%s_%s%s" % (ctx, part, ident)
 
 # Make a dressed subgraph
-def subgraph(g, what='', ident='', label='', **kwds):
+def subgraph(g, part='', ident='', label='', **kwds):
     '''
     Create a subgraph in graph g and context ctx made unique by name
-    "what" and identififer 'ident".  
+    "part" and identififer 'ident".  
     '''
-    ctx = subctx(g.name, what, ident)
-    sg = g.subgraph(ctx, label=label, color=subgraph_color(what), **kwds)
-    if what:
-        sg.attr['part'] = what
+    ctx = subctx(g.name, part, ident)
+    sg = g.subgraph(ctx, label=label, color=subgraph_color(part), **kwds)
+    if part:
+        sg.attr['part'] = part
     if ident is not None and ident is not '':
         sg.attr['ident'] = ident
     return sg
 
 # Make a dressed node
 #
-def node(g, what, ident='', label="", **kwds):
-    ctx = subctx(g.name, what, ident)
-    n = g.node(ctx, label=label,
-               shape = node_shape(what), **kwds)
-    if what:
-        n.attr['part'] = what
+def node(g, part, ident='', label="", **kwds):
+    ctx = subctx(g.name, part, ident)
+    n = g.node(ctx, label=label, **kwds)
+    # fixme: make node_shape into node_style and work like edge_style
+    n.attr.setdefault('shape', node_shape(part))
+    if part:
+        n.attr['part'] = part
     if ident is not None and ident is not '':
         n.attr['ident'] = ident
     return n
 
 # Make a dressed edge
 #
-def edge(g, tail, head, what='', reverse=False, **kwds):
-    params = edge_style(what)
+def edge(g, tail, head, part='', reverse=False, **kwds):
+    params = edge_style(part=part, reverse=reverse, **kwds)
     if reverse:
         tail, head = head, tail
-        params['dir']='back'
-    params.update(**kwds)
+        params.setdefault('dir', 'back')
     return g.edge(tail, head, **params)
 
 
-def zipup(g, upstream, downstream, what='', reverse=False, **kwds):
+def zipup(g, upstream, downstream, part='', reverse=False, **kwds):
     for u,d in zip(upstream, downstream):
-        edge(g, u,d, what, reverse, **kwds)
+        edge(g, u,d, part, reverse, **kwds)
 
 
 def femb(g, ident, nasics=8, ntxs=4, reverse=False):
@@ -91,13 +110,13 @@ def femb(g, ident, nasics=8, ntxs=4, reverse=False):
     txs = [node(gtx, 'tx', ind, 'tx%d'%ind) for ind in range(ntxs)]
 
     for fe, adc in zip(fes, adcs):
-        edge(sg, fe, adc, 'asic', reverse)
+        edge(sg, fe, adc, 'asic', reverse, linktp=asictp)
 
     for ind,adc in enumerate(adcs):
         tx = txs[ind//2]
-        edge(sg, adc, tx, 'asictx', reverse)
+        edge(sg, adc, tx, 'asictx', reverse, linktp=asictp)
     for tx in txs:
-        edge(sg, tx, cable, 'asiclink', reverse)
+        edge(sg, tx, cable, 'asiclink', reverse, linktp=nasics*asictp/ntxs)
 
     return (fes, (cable,))
 
@@ -147,21 +166,23 @@ def wibface(g, iface, reverse=False,
 
     for ind, wc in enumerate(conns):
         mx = mxs[ind%nwibs]
-        edge(sg, wc, mx, 'asiclink', reverse)
+        edge(sg, wc, mx, 'asiclink', reverse, linktp=fembtp)
+
+    fibertp = facetp/(len(fibers)*len(mxs))
 
     for ind, fiber in enumerate(fibers):
         iwib = ind//nfibersperwf
         mx = mxs[iwib]
-        edge(sg, mx, fiber, 'fiber', reverse)
+        edge(sg, mx, fiber, 'fiber', reverse, linktp=facetp/len(fibers))
 
-        # fixme: the math below is wrong when just felix is used
+        # fixme: the math below is wrong when just felix is used so just punt
         if len(fibers) == len(bundles):
-            edge(sg, fiber, bundles[ind], 'bundle', reverse)
+            edge(sg, fiber, bundles[ind], 'bundle', reverse, linktp=facetp/len(bundles))
             continue
 
         ibundle = iwib*2 + ind%nbundlesperwf
         bundle = bundles[ibundle]
-        edge(sg, fiber, bundle, 'bundle', reverse)
+        edge(sg, fiber, bundle, 'bundle', reverse, linktp=facetp/(nbundlesperwf*nwibs))
         
 
     return (conns, bundles)
@@ -189,17 +210,20 @@ def rceface(g, iface, nrce=2, nfibersperrce=5, nlinksperrce=5, reverse=False):
     iups = range(nlinksperrce * nrce)
     links = [node(gup, 'uplink', ind, label='uplink') for ind in iups]
 
+    fibertp = facetp/(nfibersperrce*nrce)
+    uplinktp = facetp/(nlinksperrce*nrce)
+
     for ifiber, fiber in enumerate(fibers):
         rce = rces[ifiber//nfibersperrce]
-        edge(sg, fiber, rce, 'fiber', reverse)
+        edge(sg, fiber, rce, 'fiber', reverse, linktp=fibertp)
 
     for rce, fpga, tx in zip(rces, fpgas, txs):
-        edge(sg, rce, fpga, 'rcelink', reverse)
-        edge(sg, fpga, tx, 'rcelink', reverse)
+        edge(sg, rce, fpga, 'rcelink', reverse, linktp=facetp/nrce)
+        edge(sg, fpga, tx, 'rcelink', reverse, linktp=facetp/nrce)
 
     for ilink, link in enumerate(links):
         tx = txs[ilink//nlinksperrce]
-        edge(sg, tx, link, 'link', reverse)
+        edge(sg, tx, link, 'link', reverse, linktp=uplinktp)
 
     return (fibers, links)
 
@@ -211,19 +235,20 @@ def felixface(g, iface, nlinks=5, reverse=False): # nlinks=10 for rce
 
     rx = node(sg, 'rx', iface, 'rx')
 
+    linktp = facetp/nlinks
     for link in links:
-        edge(sg, link, rx, 'link', reverse=reverse)
+        edge(sg, link, rx, 'link', reverse=reverse, linktp=linktp)
     return (links, (rx,))
 
 def felixhost(g):
     sg = subgraph(g, 'felixhost', label='FELIX Host')
     fpga = node(sg, 'fpga', label='FPGA')
-    pcie = node(sg, 'pcie', label='PCIe')
-    edge(sg, fpga, pcie, constraint=False)
-    return ((fpga,), (pcie,))
+    ram = node(sg, 'ram', label='RAM')
+    edge(sg, fpga, ram, constraint=False, linktp = 2*facetp, dir='none')
+    return ((fpga,), (ram,))
 
 
-def zip_wib_rce(g, wibconns, rces, what='bundle', reverse=False, **kwds):
+def zip_wib_rce(g, wibconns, rces, part='bundle', reverse=False, **kwds):
     '''
     Zip up the output WIB face nodes to input RCE nodes
     
@@ -232,9 +257,10 @@ def zip_wib_rce(g, wibconns, rces, what='bundle', reverse=False, **kwds):
     There should be one RCE node for each con
     '''
     nrces = len(rces)
+    linktp = facetp/len(wibconns)
     for ind,wibconn in enumerate(wibconns):
         rce = rces[ind%nrces]
-        edge(g, wibconn, rce, what=what, reverse=reverse, **kwds)
+        edge(g, wibconn, rce, part=part, reverse=reverse, linktp=linktp, **kwds)
 
 def main_felix(g):
     gdaq = subgraph(g, 'daq', label='RCE')
@@ -251,13 +277,13 @@ def main_felix(g):
                      reverse = iface==0)
         fel = felixface(gfelix, iface, nlinks=5, reverse = iface==0)
 
-        zipup(g, fes, wf[0], 'cable', reverse = iface==0)
-        zipup(g, wf[1], fel[0], reverse = iface==0)
+        zipup(g, fes, wf[0], 'cable', reverse = iface==0, linktp=facetp/len(wf[0]))
+        zipup(g, wf[1], fel[0], 'bundle', reverse = iface==0, linktp=facetp/len(wf[1]))
         backends.append(fel[1])
 
     fh = felixhost(gfelix)
-    edge(gfelix, backends[0][0], fh[0][0], reverse=True)
-    edge(gfelix, backends[1][0], fh[0][0], reverse=False)
+    edge(gfelix, backends[0][0], fh[0][0], reverse=True, linktp=facetp, dir='none')
+    edge(gfelix, backends[1][0], fh[0][0], reverse=False, linktp=facetp, dir='none')
 
     
 def main_rce_felix(g):
@@ -276,14 +302,14 @@ def main_rce_felix(g):
 
         fel = felixface(gfelix, iface, nlinks=10, reverse = iface==0)
 
-        zipup(g, fes, wf[0], 'cable', reverse = iface==0)
+        zipup(g, fes, wf[0], 'cable', reverse = iface==0, linktp=facetp/len(wf[0]))
         zip_wib_rce(g, wf[1], rf[0], reverse = iface==0)
-        zipup(g, rf[1], fel[0], reverse = iface==0)
+        zipup(g, rf[1], fel[0], reverse = iface==0, linktp=facetp/len(fel[0]))
         backends.append(fel[1])
 
     fh = felixhost(gfelix)
-    edge(gfelix, backends[0][0], fh[0][0], reverse=True)
-    edge(gfelix, backends[1][0], fh[0][0], reverse=False)
+    edge(gfelix, backends[0][0], fh[0][0], reverse=True, linktp=facetp, dir='none')
+    edge(gfelix, backends[1][0], fh[0][0], reverse=False, linktp=facetp, dir='none')
 
 
 def main(which = "felix"):
