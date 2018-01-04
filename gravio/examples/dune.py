@@ -182,7 +182,7 @@ def wibface(g, iface, reverse=False,
 
         ibundle = iwib*2 + ind%nbundlesperwf
         bundle = bundles[ibundle]
-        edge(sg, fiber, bundle, 'bundle', reverse, linktp=facetp/(nbundlesperwf*nwibs))
+        edge(sg, fiber, bundle, 'bundle', reverse, linktp=facetp/len(fibers))
         
 
     return (conns, bundles)
@@ -260,7 +260,7 @@ def zip_wib_rce(g, wibconns, rces, part='bundle', reverse=False, **kwds):
     linktp = facetp/len(wibconns)
     for ind,wibconn in enumerate(wibconns):
         rce = rces[ind%nrces]
-        edge(g, wibconn, rce, part=part, reverse=reverse, linktp=linktp, **kwds)
+        edge(g, wibconn, rce, part=part, reverse=reverse, linktp=linktp, label="4 fibers", **kwds)
 
 def main_felix(g):
     gdaq = subgraph(g, 'daq', label='RCE')
@@ -302,7 +302,7 @@ def main_rce_felix(g):
 
         fel = felixface(gfelix, iface, nlinks=10, reverse = iface==0)
 
-        zipup(g, fes, wf[0], 'cable', reverse = iface==0, linktp=facetp/len(wf[0]))
+        zipup(g, fes, wf[0], 'cable', reverse = iface==0, label="4 fibers", linktp=facetp/len(wf[0]))
         zip_wib_rce(g, wf[1], rf[0], reverse = iface==0)
         zipup(g, rf[1], fel[0], reverse = iface==0, linktp=facetp/len(fel[0]))
         backends.append(fel[1])
