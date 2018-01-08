@@ -14,8 +14,15 @@ def subgraph_color(part):
     https://graphviz.gitlab.io/_pages/doc/info/colors.html
     '''
     scheme = '/bupu6/'
+    if part == 'wibbundle':
+        return 'white'
+    if part == 'wibconns':
+        return 'white'
     if part.startswith("wib"):
         part = "wib"
+
+    if part == 'rceups':
+        return 'white'
     if part.startswith("rce"):
         part = "rce"
     ranks = dict(apa=1, face=2, femb=3, wib=4, rce=5, felix=6)
@@ -56,7 +63,8 @@ def subgraph(g, part='', ident='', label='', **kwds):
     "part" and identififer 'ident".  
     '''
     ctx = subctx(g.name, part, ident)
-    sg = g.subgraph(ctx, label=label, color=subgraph_color(part), **kwds)
+    kwds.setdefault('color', subgraph_color(part))
+    sg = g.subgraph(ctx, label=label, **kwds)
     if part:
         sg.attr['part'] = part
     if ident is not None and ident is not '':
@@ -98,7 +106,7 @@ def femb(g, ident, nasics=8, ntxs=4, reverse=False):
 
     sg = subgraph(g, 'femb', ident, 'FEMB%02d'%ident)
 
-    cable = node(sg, 'cable', label='cable')
+    cable = node(sg, 'cable', label='Cable Bundle\n(%d wires)'%ntxs)
 
     gfe = subgraph(sg, 'fes')
     fes = [node(gfe, 'fe', ind, 'FE%d'%ind) for ind in range(nasics)]
@@ -122,23 +130,37 @@ def femb(g, ident, nasics=8, ntxs=4, reverse=False):
 
 
 def wibface(g, iface, reverse=False,
-            nfibersperwf=1, nbundlesperwf=1, nwibs=5, nconns=2):
+            # total number of incoming cold conductors entering the wibface
+            nconductors = 40,
+            # total number of outgoing fibers leaving the wibface
+            nfibers = 5,
+            # total number of outgoing fiber bundles leaving the wibface
+            nbundles = 5, 
+            # number of wibs participating (partly) in the wibface
+            nwibs=5,
+            # number of connectors on these wibs servicing this wibface
+            nconns=2):
     '''
     Make a "WIB face" which is 1/2 of the connectors of all WIBs which
     are servicing one APA face.
     '''
+
+    nbundlesperwib=nbundles//nwibs
+    nfibersperbundle = nfibers//nbundles
+    nconductorsperconnector = nconductors//(nwibs*nconns)
+
     sg = subgraph(g, 'wibface', iface, 'WIB Face %d' % iface)
 
     iconns = range(iface*nconns, (iface+1)*nconns)
-    gconns = [subgraph(sg, 'wibconns', ind, 'WIB conns #%d'%ind) for ind in iconns]
-    gmx = subgraph(sg, 'wibmxs')
-    gfiber = subgraph(sg, 'wibfibers')
-    gbundle = subgraph(sg, 'wibbundle')
+    gconns = [subgraph(sg, 'wibconns', ind, 'Connectors #%d'%ind, ordering='out') for ind in iconns]
+    gmx = subgraph(sg, 'wibmxs', ordering='out')
+    # gfiber = subgraph(sg, 'wibfibers')
+    gbundle = subgraph(sg, 'wibbundle', ordering='out')
 
     conns = list()
     for iconn, gconn in zip(iconns, gconns):
         for iwib in range(nwibs):
-            lab = 'WIB%d\nconn%d'%(iwib, iconn)
+            lab = 'WIB %d\nConnector %d'%(iwib, iconn)
             n = node(gconn, 'conn', iwib, lab)
             conns.append(n)
 
@@ -147,85 +169,197 @@ def wibface(g, iface, reverse=False,
         n = node(gmx, 'mx', iwib, 'WIB %d\nrx/mx/tx'%iwib)
         mxs.append(n)
 
-    fibers = list()
-    for iwib in range(nwibs):
-        for ifiber in range(nfibersperwf):
-            ident_fiber = iwib * nfibersperwf + ifiber
-            n = node(gfiber, 'fiber', ident_fiber,
-                     label='WIB %d\nfiber%d'%(iwib, ifiber))
-            fibers.append(n)
+    #for mx1, mx2 in zip(mxs[:-1], mxs[1:]):
+    #    edge(gmx, mx1, mx2, weight=2) # force ordering
 
-    #nfibersperwf=8, nbundlesperwf=2
-    bundles=list()
-    for iwib in range(nwibs):
-        for ibundle in range(nbundlesperwf):
-            ident = iwib*nbundlesperwf + ibundle
-            n = node(gbundle, 'bundle', ident,
-                     label='WIB%d\nBundle%d'%(iwib, ibundle))
-            bundles.append(n)
+    # fibers = list()
+    # for iwib in range(nwibs):
+    #     for ifiber in range(nfibersperwf):
+    #         ident_fiber = iwib * nfibersperwf + ifiber
+    #         n = node(gfiber, 'fiber', ident_fiber,
+    #                  label='WIB %d\nfiber%d'%(iwib, ifiber))
+    #         fibers.append(n)
 
+
+    bundles = list()
+    for iwib in range(nwibs):
+        for ibundle in range(nbundlesperwib):
+            ident = iwib*nbundlesperwib + ibundle
+            b = node(gbundle, 'bundle', ident,
+                     label='WIB%d\nBundle %d\n(%dx fibers)'%(iwib, ibundle, nfibersperbundle))
+            bundles.append(b)
+
+    condtp = facetp/nconductors
     for ind, wc in enumerate(conns):
         mx = mxs[ind%nwibs]
-        edge(sg, wc, mx, 'asiclink', reverse, linktp=fembtp)
+        for icond in range(nconductorsperconnector):
+            edge(sg, wc, mx, 'asiclink', reverse, linktp=condtp)
 
-    fibertp = facetp/(len(fibers)*len(mxs))
-
-    for ind, fiber in enumerate(fibers):
-        iwib = ind//nfibersperwf
+    fibertp = facetp/nfibers
+    for iwib in range(nwibs):
         mx = mxs[iwib]
-        edge(sg, mx, fiber, 'fiber', reverse, linktp=facetp/len(fibers))
+        for ibundle in range(nbundlesperwib):
+            ident = iwib*nbundlesperwib + ibundle
+            bundle = bundles[ident]
+            for ifiber in range(nfibersperbundle):
+                edge(sg, mx, bundle, 'fiber', reverse, linktp = fibertp)
 
-        # fixme: the math below is wrong when just felix is used so just punt
-        if len(fibers) == len(bundles):
-            edge(sg, fiber, bundles[ind], 'bundle', reverse, linktp=facetp/len(bundles))
-            continue
+    # for ind, fiber in enumerate(fibers):
+    #     iwib = ind//nfibersperwf
+    #     mx = mxs[iwib]
+    #     edge(sg, mx, fiber, 'fiber', reverse, linktp=facetp/len(fibers))
 
-        ibundle = iwib*2 + ind%nbundlesperwf
-        bundle = bundles[ibundle]
-        edge(sg, fiber, bundle, 'bundle', reverse, linktp=facetp/len(fibers))
+    #     # fixme: the math below is wrong when just felix is used so just punt
+    #     if len(fibers) == len(bundles):
+    #         edge(sg, fiber, bundles[ind], 'bundle', reverse, linktp=facetp/len(bundles))
+    #         continue
+
+    #     ibundle = iwib*2 + ind%nbundlesperwf
+    #     bundle = bundles[ibundle]
+    #     edge(sg, fiber, bundle, 'bundle', reverse, linktp=facetp/len(fibers))
+        
+
+    return (conns, bundles)
+        
+def wibface2(g, iface, reverse=False,
+            # total number of incoming cold conductors entering the wibface
+            nconductors = 40,
+            # total number of outgoing fibers leaving the wibface
+            nfibers = 5,
+            # total number of outgoing fiber bundles leaving the wibface
+            nbundles = 5, 
+            # number of wibs participating (partly) in the wibface
+            nwibs=5,
+            # number of connectors on these wibs servicing this wibface
+            nconns=2):
+    '''
+    Make a "WIB face" which is 1/2 of the connectors of all WIBs which
+    are servicing one APA face.
+    '''
+
+    nbundlesperwib=nbundles//nwibs
+    nfibersperbundle = nfibers//nbundles
+    nconductorsperconnector = nconductors//(nwibs*nconns)
+
+    sg = subgraph(g, 'wibface', iface, 'WIB Face %d' % iface)
+
+    gwibs = list()
+    conns = list()
+    mxs = list()
+    bundles = list()
+
+    for iwib in range(nwibs):
+        gwib = subgraph(sg, 'wibhalf', iwib, 'WIB %d Face %d'%(iwib, iface))
+
+        gconn = subgraph(gwib, 'wibconns', iwib, 'Connectors for half WIB #%d'%iwib)
+        for iconn in range(iface*nconns, (iface+1)*nconns):
+            lab = 'WIB %d\nConnector %d'%(iwib, iconn)
+            ident = iconn*nwibs + iwib
+            n = node(gconn, 'conn', ident, lab)
+            conns.append(n)
+            
+        gmx = subgraph(gwib, 'wibmx')
+        mx = node(gmx, 'mx', iwib, 'WIB %d\nrx/mx/tx'%iwib)
+        mxs.append(mx)
+
+        gbundle = subgraph(gwib, 'wibbundle', iwib, 'Fiber Bundles')
+        for ibundle in range(nbundlesperwib):
+            ident = iwib*nbundlesperwib + ibundle
+            b = node(gbundle, 'bundle', ident,
+                     label='WIB%d\nBundle %d\n(%dx fibers)'%(iwib, ibundle, nfibersperbundle))
+            bundles.append(b)
+    conns.sort(key=lambda c: c.attr['ident'])
+
+
+    condtp = facetp/nconductors
+    for ind, wc in enumerate(conns):
+        mx = mxs[ind%nwibs]
+        for icond in range(nconductorsperconnector):
+            edge(sg, wc, mx, 'asiclink', reverse, linktp=condtp)
+
+    fibertp = facetp/nfibers
+    for iwib in range(nwibs):
+        mx = mxs[iwib]
+        for ibundle in range(nbundlesperwib):
+            ident = iwib*nbundlesperwib + ibundle
+            bundle = bundles[ident]
+            for ifiber in range(nfibersperbundle):
+                edge(sg, mx, bundle, 'fiber', reverse, linktp = fibertp)
+
+    # for ind, fiber in enumerate(fibers):
+    #     iwib = ind//nfibersperwf
+    #     mx = mxs[iwib]
+    #     edge(sg, mx, fiber, 'fiber', reverse, linktp=facetp/len(fibers))
+
+    #     # fixme: the math below is wrong when just felix is used so just punt
+    #     if len(fibers) == len(bundles):
+    #         edge(sg, fiber, bundles[ind], 'bundle', reverse, linktp=facetp/len(bundles))
+    #         continue
+
+    #     ibundle = iwib*2 + ind%nbundlesperwf
+    #     bundle = bundles[ibundle]
+    #     edge(sg, fiber, bundle, 'bundle', reverse, linktp=facetp/len(fibers))
         
 
     return (conns, bundles)
         
 
 
-def rceface(g, iface, nrce=2, nfibersperrce=5, nlinksperrce=5, reverse=False):
+def rceface(g, iface, nrce=2, nfpga=2, nbundles=10, nfibers=40, nlinks=5, reverse=False):
     '''
-    Produce one RCE fragment servicing the APA face
+    Produce one RCE fragment servicing one WIB-face
     '''
     sg = subgraph(g, 'rceface', iface, 'RCE Face %d' % iface)
 
-    gfiber = subgraph(sg, "fiber", iface, 'fibers')
-    grce = subgraph(sg, 'rcefes', iface, 'FEs')
-    gfpga = subgraph(sg, 'rcefpgas', iface, 'FPGAs')
-    gtx = subgraph(sg, 'rcetx', iface, 'tx')
+    gbundles = subgraph(sg, "bundles", iface, 'bundles')
+    grces = [subgraph(sg, 'rce%d'%ind, iface, 'RCE %d'%ind) for ind in range(nrce)]
     gup = subgraph(sg, 'rceups', iface, 'Uplinks')
 
-    ifibers = range(nrce * nfibersperrce)
-    fibers = [node(gfiber, 'fiber', ind, label='fiber%02d'%ind) for ind in ifibers]
-    irces = range(iface*nrce, (iface+1)*nrce)
-    rces = [node(grce, 'rce', ind, label='RCE%d'%ind) for ind in irces]
-    fpgas = [node(gfpga, 'fpga', ind, label='FPGA') for ind in irces]
-    txs = [node(gtx, 'tx', ind, label='tx') for ind in irces]
-    iups = range(nlinksperrce * nrce)
-    links = [node(gup, 'uplink', ind, label='uplink') for ind in iups]
+    bundles = [node(gbundles, 'bundle', ind, label='bundle%d'%ind) for ind in range(nbundles)]
 
-    fibertp = facetp/(nfibersperrce*nrce)
-    uplinktp = facetp/(nlinksperrce*nrce)
+    rtms = list()
+    fpgas = list()
+    for irce, grce in enumerate(grces):
+        rtm = node(grce, 'rtm', irce, label='RTM')
+        rtms.append(rtm)
+        for ifpga in range(nfpga):
+            fpga = node(grce, 'fpga%d' % ifpga, label='FPGA%d'%ifpga)
+            fpgas.append(fpga)
 
-    for ifiber, fiber in enumerate(fibers):
-        rce = rces[ifiber//nfibersperrce]
-        edge(sg, fiber, rce, 'fiber', reverse, linktp=fibertp)
+    tx = node(sg, 'tx', label='tx')
+    
+    uplinks = list()
+    for ilink in range(nlinks):
+        link = node(gup, 'uplink', ilink, label='Uplink %d' % ilink)
+        uplinks.append(link)
 
-    for rce, fpga, tx in zip(rces, fpgas, txs):
-        edge(sg, rce, fpga, 'rcelink', reverse, linktp=facetp/nrce)
-        edge(sg, fpga, tx, 'rcelink', reverse, linktp=facetp/nrce)
+    fibertp = facetp/nfibers
 
-    for ilink, link in enumerate(links):
-        tx = txs[ilink//nlinksperrce]
-        edge(sg, tx, link, 'link', reverse, linktp=uplinktp)
+    nfibersperbundle = nfibers//nbundles
+    nbundlesperrtm = nbundles//nrce
+    for ibundle, bundle in enumerate(bundles):
+        rtm = rtms[ibundle//nbundlesperrtm]
+        for ifiber in range(nfibersperbundle):
+            edge(sg, bundle, rtm, 'fiber', reverse, linktp=fibertp)
+    
+    inside='w'
+    outside='e'
+    if reverse:
+        inside='e'
+        outside='w'
 
-    return (fibers, links)
+    for ifpga, fpga in enumerate(fpgas):
+        rtm = rtms[ifpga//nrce]
+        ntraces = nfibersperbundle*nbundles//nrce
+        for ifiber in range(ntraces):
+            edge(grce, rtm, fpga.name+':'+inside, 'fiber', reverse, linktp=fibertp)
+        edge(sg, fpga.name+':'+outside, tx, 'trace', reverse, linktp=facetp//(nrce*nfpga), dir='none')
+
+    for link in uplinks:
+        edge(sg, tx, link, 'uplink', reverse, linktp = facetp//len(uplinks))
+
+    return (bundles, uplinks)
+
 
 def felixface(g, iface, nlinks=5, reverse=False): # nlinks=10 for rce
     sg = subgraph(g, 'felixface', iface, 'Felix FACE %d' % iface)
@@ -260,7 +394,7 @@ def zip_wib_rce(g, wibconns, rces, part='bundle', reverse=False, **kwds):
     linktp = facetp/len(wibconns)
     for ind,wibconn in enumerate(wibconns):
         rce = rces[ind%nrces]
-        edge(g, wibconn, rce, part=part, reverse=reverse, linktp=linktp, label="4 fibers", **kwds)
+        edge(g, wibconn, rce, part=part, reverse=reverse, linktp=linktp,  **kwds)
 
 def main_felix(g):
     gdaq = subgraph(g, 'daq', label='RCE')
@@ -273,12 +407,17 @@ def main_felix(g):
         for ident in range(iface*10, (iface+1)*10):
             _, cabs = femb(gdaq, ident, reverse = iface==0)
             fes.append(cabs[0])
-        wf = wibface(gdaq, iface, nfibersperwf=1, nbundlesperwf=1,
+        wf = wibface2(gdaq, iface, nfibers=5, nbundles=5,
                      reverse = iface==0)
         fel = felixface(gfelix, iface, nlinks=5, reverse = iface==0)
 
-        zipup(g, fes, wf[0], 'cable', reverse = iface==0, linktp=facetp/len(wf[0]))
-        zipup(g, wf[1], fel[0], 'bundle', reverse = iface==0, linktp=facetp/len(wf[1]))
+        linktp = facetp/len(wf[0])
+        zipup(g, fes, wf[0], 'cable', reverse = iface==0,
+              label='4 wires (%.1f Gbps)'%linktp, linktp=linktp)
+
+        linktp = facetp/len(wf[1])
+        zipup(g, wf[1], fel[0], 'bundle', reverse = iface==0,
+              label="%.1f Gbps\n\n"%linktp, linktp=linktp)
         backends.append(fel[1])
 
     fh = felixhost(gfelix)
@@ -297,14 +436,21 @@ def main_rce_felix(g):
         for ident in range(iface*10, (iface+1)*10):
             _, cabs = femb(gdaq, ident, reverse = iface==0)
             fes.append(cabs[0])
-        wf = wibface(gdaq, iface, nfibersperwf=8, nbundlesperwf=2, reverse = iface==0)
+        wf = wibface2(gdaq, iface, nfibers=40, nbundles=10, 
+                     reverse = iface==0)
         rf = rceface(gdaq, iface, reverse = iface==0)
 
-        fel = felixface(gfelix, iface, nlinks=10, reverse = iface==0)
+        fel = felixface(gfelix, iface, nlinks=5, reverse = iface==0)
 
-        zipup(g, fes, wf[0], 'cable', reverse = iface==0, label="4 fibers", linktp=facetp/len(wf[0]))
+        linktp = facetp/len(wf[0])
+        zipup(g, fes, wf[0], 'cable', reverse = iface==0,
+              label="4 wires (%.1f Gbps)"%linktp, linktp=linktp)
         zip_wib_rce(g, wf[1], rf[0], reverse = iface==0)
-        zipup(g, rf[1], fel[0], reverse = iface==0, linktp=facetp/len(fel[0]))
+
+        linktp = facetp/len(fel[0])
+        zipup(g, rf[1], fel[0], reverse = iface==0,
+              label='\n\n%.1f Gbps\n\n'%linktp,
+              linktp=linktp)
         backends.append(fel[1])
 
     fh = felixhost(gfelix)
@@ -312,14 +458,26 @@ def main_rce_felix(g):
     edge(gfelix, backends[1][0], fh[0][0], reverse=False, linktp=facetp, dir='none')
 
 
+def main_oneface_rce_felix(g):
+    iface=1
+    fel = felixface(g, iface=iface, nlinks=5, reverse = iface==0)
+    
+
+def main_wibface_rce_felix(g):
+    iface=1
+    wf = wibface2(g, iface=iface, nfibers=40, nbundles=5,
+                 reverse = iface==0)
+    
+def main_rceface_felix(g):
+    iface=1
+    rf = rceface(g, iface, reverse = iface==0)
+
 def main(which = "felix"):
     from gravio import gen
     g = gen.Graph("dune", "digraph", label="DUNE",
                   nodesep='.1', ranksep='2',
                   rankdir='LR', style="filled", color='white')
 
-    if which == "felix":
-        main_felix(g)
-    if which == "rce_felix":
-        main_rce_felix(g)
+    meth = eval("main_" + which)
+    meth(g)
     return g

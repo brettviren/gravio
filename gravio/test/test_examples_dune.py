@@ -4,7 +4,14 @@ import gravio.dotify
 
 def main():
 
-    for which in ["felix", "rce_felix"]:
+    views = [
+        "felix",
+        "rce_felix",
+        #"oneface_rce_felix",
+        "wibface_rce_felix",
+        #"rceface_felix"
+    ]
+    for which in views:
         g = gravio.examples.dune.main(which)
         d = gravio.dotify.Dotify(g)
         filename = "test_examples_dune_%s.dot"%which
