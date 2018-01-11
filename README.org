@@ -95,15 +95,23 @@ See the modules under =gravio.test= and =gravio.examples=.  This example produce
 
 #+BEGIN_EXAMPLE
 $ python gravio/test/test_examples_dune.py 
-$ dot -Tsvg -o images/example-dune-felix.svg test_examples_dune_felix.dot
-$ dot -Tsvg -o images/example-dune-rce-felix.svg test_examples_dune_rce_felix.dot
+$ for ext in svg pdf png; do 
+$   dot -T$ext -o images/example-dune-felix.$ext test_examples_dune_felix.dot
+$   dot -T$ext -o images/example-dune-rce-felix.$ext test_examples_dune_rce_felix.dot
+$ done
 #+END_EXAMPLE
 
-#+attr_html: :width 100%
+#+BEGIN_CENTER
+
+Just FELIX, [[./images/example-dune-felix.svg][SVG]] [[./images/example-dune-felix.pdf][PDF]].
+
+#+attr_html: :width 50%
 [[file:images/example-dune-felix.svg]]
-#+attr_html: :width 100%
+
+RCE+FELIX, [[./images/example-dune-rce-felix.svg][SVG]] [[./images/example-dune-rce-felix.pdf][PDF]].
+
+#+attr_html: :width 50%
 [[file:images/example-dune-rce-felix.svg]]
 
 
-
-
+#+END_CENTER
