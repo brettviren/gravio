@@ -8,7 +8,7 @@ Gravio is graph generation and visualization with an object oriented data struct
 
 * Overview
 
-Gravio helps you write Python code which construct graphs.  It does this by providing a command-oriented interface to add nodes, edges and subgraphs.  As a graph is developed its intermediate state be queried which helps to factor construction code into functional parts which can build on prior results.
+Gravio helps you write Python code which construct graphs.  It does this by providing a command-oriented interface to add nodes, edges and subgraphs.  As a graph is developed its intermediate state may be queried which helps to factor construction code into functional parts which can build on prior results.
 
 Construction commands are queued so that they may be replayed in order.  This allows commands to mutate shared state which reduces the need to exhaustively specify attributes.
 
@@ -22,7 +22,9 @@ Install it like any Python package.
 
 ** Simple Construction
 
-The =gravio.gen.Graph= class is the main entry point to constructing graphs.  It provides methods =.node()=, =.edge()= and =.subgraph()= (in the GraphViz "cluster" sense) to new objects to itself in order of their calling.  Positional arguments are node or subgraph names.  Arbitrary keyword arguments may be applied.  If positional arguments are omitted the call is equivalent to using a typename.  For example =g.node(color='red')= is equivalent to creating a node named =node= with the =color= attribute set to =red=.  Some =Graph= consumers may interpret this as setting a default value for any subsequent =node=.  Indeed the example =Graph= below is consumed by =dotify.Dotify= which when evaluated as a string will produce Dot text.
+The =gravio.gen.Graph= class is the main entry point to constructing graphs.  It provides methods =.node()=, =.edge()= and =.subgraph()= (in the GraphViz "cluster" sense).  Each return and add new objects to command list in order of their calling.  Positional arguments are node or subgraph names.  Arbitrary keyword arguments may be applied.  If positional arguments are omitted the call is equivalent to using a typename.  For example ~g.node(color='red')~ is equivalent to creating a node named =node= with the =color= attribute set to =red=.  Some =Graph= consumers may interpret this as setting a default value for any subsequent =node=.  Indeed the example =Graph= below is consumed by =dotify.Dotify= which when evaluated as a string will produce Dot text.
+
+Here is a simple example =gravio= code, the result of exporting to Dot and its visualization with =dot=:
 
 #+NAME: make-simple
 #+BEGIN_SRC python :results output :exports both
