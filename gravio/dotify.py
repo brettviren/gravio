@@ -54,10 +54,16 @@ class Dotify(object):
         if not objlist:
             return list()
 
-        obj = objlist[0]
-
-        render = getattr(self, obj.typename)
-        lines = render(depth, obj)
-        lines += self.next_lines(depth, objlist[1:]); # continue
+        lines = list()
+        for obj in objlist:
+            render = getattr(self, obj.typename)
+            lines += render(depth, obj)
         return lines
+
+        # obj = objlist[0]
+
+        # render = getattr(self, obj.typename)
+        # lines = render(depth, obj)
+        # lines += self.next_lines(depth, objlist[1:]); # continue
+        # return lines
         
