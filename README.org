@@ -2,6 +2,10 @@
 
 Gravio is graph generation and visualization with an object oriented data structure.
 
+#+attr_html: :width 25%
+[[file:images/puff-ball-that-catches-neutrinos.svg]]
+
+
 * Overview
 
 Gravio helps you write Python code which construct graphs.  It does this by providing a command-oriented interface to add nodes, edges and subgraphs.  As a graph is developed its intermediate state be queried which helps to factor construction code into functional parts which can build on prior results.
