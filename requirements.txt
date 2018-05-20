@@ -1,2 +1,5 @@
 networkx
+matplotlib
 graphviz
+jsonnet
+click

@@ -13,6 +13,7 @@ setup(name = 'gravio',
       ],
       entry_points = {
           'console_scripts': [
+              'gravio = gravio.main:main',
           ]
       }
 )
